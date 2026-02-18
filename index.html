@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IKKYU — AI Object Select</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Syne:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#c9a84c;--gold-l:#e8d08a;--gold-d:#6a5020;
+  --cyan:#4cbfc9;--cyan-d:#1a5f65;
+  --bg:#070707;--s1:#0f0f0f;--s2:#161616;--s3:#1e1e1e;
+  --border:rgba(201,168,76,0.13);--border2:rgba(201,168,76,0.28);
+  --text:#ddd5c0;--text-d:#4a4030;--white:#f2ede4;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity:0.03}
+body::after{content:'';position:fixed;top:-280px;left:50%;transform:translateX(-50%);
+  width:900px;height:500px;
+  background:radial-gradient(ellipse,rgba(201,168,76,0.07) 0%,transparent 68%);
+  pointer-events:none;z-index:0}
+
+header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;
+  padding:18px 40px;border-bottom:1px solid var(--border)}
+.logo{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;letter-spacing:.35em;
+  text-transform:uppercase;color:var(--gold-l)}
+.logo em{font-style:italic;color:var(--text-d);font-size:13px;letter-spacing:.12em;margin-left:10px}
+.badge{font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-d);
+  border:1px solid var(--gold-d);padding:5px 13px;border-radius:2px}
+
+main{position:relative;z-index:1;max-width:1060px;margin:0 auto;padding:44px 20px 80px}
+
+.hero{text-align:center;margin-bottom:40px}
+.hero h1{font-family:'Cormorant Garamond',serif;font-size:clamp(30px,5.5vw,60px);font-weight:300;
+  line-height:1.08;color:var(--white);margin-bottom:12px}
+.hero h1 em{font-style:italic;color:var(--gold-l)}
+.hero p{font-size:12.5px;color:var(--text-d);letter-spacing:.08em;font-weight:300}
+
+#upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border:1px dashed var(--border);border-radius:4px;min-height:280px;background:var(--s1);
+  cursor:pointer;transition:border-color .35s,background .35s;position:relative;overflow:hidden}
+#upload-zone::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 60%,rgba(201,168,76,0.04) 0%,transparent 65%)}
+#upload-zone:hover,#upload-zone.drag-over{border-color:var(--gold-d);background:#111}
+.up-icon{width:54px;height:54px;margin-bottom:16px;border:1px solid var(--border);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;color:var(--gold-d);font-size:22px;transition:all .3s}
+#upload-zone:hover .up-icon{border-color:var(--gold);color:var(--gold)}
+.up-label{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;color:var(--text-d);margin-bottom:6px}
+.up-hint{font-size:11px;color:#251e14;letter-spacing:.1em}
+#file-input{display:none}
+
+#canvas-section{display:none;flex-direction:column;align-items:center;gap:16px}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:stretch;background:var(--s1);border:1px solid var(--border);
+  border-radius:4px;width:100%;overflow:hidden}
+.toolbar-steps{display:flex;align-items:center;flex:1;padding:0 16px;gap:0;flex-wrap:wrap}
+.stp{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-d);
+  letter-spacing:.03em;padding:14px 0;transition:color .3s;white-space:nowrap}
+.stp.active{color:var(--gold-l)}
+.stp.done{color:var(--gold-d)}
+.stp-n{width:18px;height:18px;border-radius:50%;border:1px solid currentColor;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9.5px;font-family:'Cormorant Garamond',serif;flex-shrink:0;transition:background .3s}
+.stp.active .stp-n{background:rgba(201,168,76,0.14)}
+.stp.done .stp-n{background:rgba(201,168,76,0.22);font-size:9px}
+.stp-sep{width:20px;height:1px;background:var(--border);flex-shrink:0;margin:0 3px}
+.toolbar-tip{padding:0 16px;border-left:1px solid var(--border);
+  font-family:'Cormorant Garamond',serif;font-size:13px;color:var(--text-d);
+  font-style:italic;min-width:180px;font-weight:300;display:flex;align-items:center}
+
+/* Canvas */
+.canvas-wrapper{position:relative;border:1px solid var(--border);border-radius:4px;overflow:hidden;
+  box-shadow:0 0 80px rgba(0,0,0,.9),0 0 0 1px rgba(201,168,76,0.04);
+  cursor:crosshair;user-select:none;max-width:100%}
+#main-canvas{display:block;max-width:100%}
+#lasso-canvas{position:absolute;top:0;left:0;pointer-events:none}
+#ui-canvas{position:absolute;top:0;left:0;pointer-events:none}
+
+/* Status */
+#status-bar{display:flex;align-items:center;gap:10px;padding:9px 16px;border-radius:4px;
+  background:var(--s2);border:1px solid var(--border);width:100%;font-size:11.5px;
+  color:var(--text-d);letter-spacing:.05em}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--text-d);flex-shrink:0;transition:background .3s}
+.sdot.gold{background:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.7);animation:pulse 1.5s ease infinite}
+.sdot.cyan{background:var(--cyan);box-shadow:0 0 8px rgba(76,191,201,.7);animation:pulse 1.5s ease infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.badge-pill{margin-left:auto;padding:3px 11px;border-radius:2px;font-size:10px;
+  letter-spacing:.1em;text-transform:uppercase;display:none}
+.badge-pill.show{display:block}
+.badge-pill.gold{border:1px solid var(--gold-d);color:var(--gold)}
+.badge-pill.cyan{border:1px solid var(--cyan-d);color:var(--cyan)}
+
+.tool-acts{display:flex;gap:9px}
+.btn{font-family:'Syne',sans-serif;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+  padding:11px 24px;border-radius:2px;border:none;cursor:pointer;transition:all .25s;font-weight:400}
+.btn-gold{background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#080600}
+.btn-gold:hover{background:linear-gradient(135deg,var(--gold),var(--gold-l));transform:translateY(-1px)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-d)}
+.btn-ghost:hover{border-color:var(--text-d);color:var(--text)}
+.btn:disabled{opacity:.3;pointer-events:none}
+
+/* Confirm dialog */
+#confirm-dialog{display:none;position:fixed;inset:0;z-index:100;
+  background:rgba(3,3,3,.9);backdrop-filter:blur(18px);
+  align-items:center;justify-content:center}
+#confirm-dialog.show{display:flex;animation:dlgIn .38s cubic-bezier(.34,1.56,.64,1)}
+@keyframes dlgIn{from{opacity:0;transform:scale(.9) translateY(14px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.dlg{background:var(--s1);border:1px solid var(--border2);border-radius:4px;
+  padding:46px 54px;text-align:center;max-width:420px;width:90%;
+  box-shadow:0 0 0 1px rgba(201,168,76,.04),0 40px 120px rgba(0,0,0,.95);position:relative}
+.dlg::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:90px;height:1px;background:linear-gradient(90deg,transparent,var(--gold-d),transparent)}
+.dlg-glyph{font-family:'Cormorant Garamond',serif;font-size:40px;color:var(--gold-d);
+  margin-bottom:14px;display:block}
+.dlg-title{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;
+  color:var(--white);margin-bottom:8px;line-height:1.2}
+.dlg-sub{font-size:12px;color:var(--text-d);margin-bottom:14px;line-height:1.9;letter-spacing:.04em}
+.dlg-chips{display:flex;gap:8px;justify-content:center;margin-bottom:32px;flex-wrap:wrap}
+.chip{padding:3px 13px;border-radius:2px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
+.chip.gold{border:1px solid var(--gold-d);color:var(--gold)}
+.chip.cyan{border:1px solid var(--cyan-d);color:var(--cyan)}
+.dlg-acts{display:flex;gap:11px;justify-content:center}
+
+/* Loading */
+#loading-overlay{display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(3,3,3,.95);backdrop-filter:blur(22px);
+  align-items:center;justify-content:center;flex-direction:column;gap:20px}
+#loading-overlay.show{display:flex}
+.rw{position:relative;width:66px;height:66px}
+.r1{position:absolute;inset:0;border:1px solid var(--border);border-top-color:var(--gold);
+  border-radius:50%;animation:spin 1.1s linear infinite}
+.r2{position:absolute;inset:11px;border:1px solid rgba(201,168,76,.08);border-right-color:var(--gold-d);
+  border-radius:50%;animation:spin .7s linear infinite reverse}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ld-t{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text);font-weight:300;letter-spacing:.1em}
+.ld-s{font-size:10.5px;color:var(--text-d);letter-spacing:.12em;text-transform:uppercase}
+.pt{width:200px;height:1px;background:var(--border);position:relative;overflow:hidden}
+.pf{position:absolute;left:0;top:0;height:100%;
+  background:linear-gradient(90deg,var(--gold-d),var(--gold));width:0%;transition:width .5s ease}
+
+/* Result */
+#result-section{display:none;flex-direction:column;align-items:center;gap:22px}
+.res-t{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;
+  color:var(--gold-d);letter-spacing:.12em;font-style:italic;text-align:center}
+#result-canvas{border:1px solid var(--border);border-radius:4px;max-width:100%;
+  background-image:linear-gradient(45deg,#191919 25%,transparent 25%),
+    linear-gradient(-45deg,#191919 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,#191919 75%),
+    linear-gradient(-45deg,transparent 75%,#191919 75%);
+  background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;
+  box-shadow:0 0 60px rgba(0,0,0,.8)}
+.res-acts{display:flex;gap:11px}
+
+#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:300;
+  background:var(--s2);border:1px solid var(--border);padding:10px 22px;border-radius:2px;
+  font-size:11.5px;color:var(--text-d);letter-spacing:.06em;opacity:0;pointer-events:none;
+  transition:opacity .3s;white-space:nowrap}
+#toast.show{opacity:1}
+
+footer{position:relative;z-index:1;text-align:center;padding:30px;border-top:1px solid var(--border);
+  font-size:10.5px;color:#1a1410;letter-spacing:.1em}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">IKKYU <em>ณัชสรณ์</em></div>
+  <div class="badge">AI Object Select · BG Remove</div>
+</header>
+<main>
+  <div class="hero">
+    <h1>AI คิดให้<br><em>เลือกวัตถุได้แม่นยำ</em></h1>
+    <p>วงรอบพื้นที่คร่าวๆ · AI วิเคราะห์หา object boundary · Snap เข้า edge ที่แท้จริง</p>
+  </div>
+
+  <div id="upload-zone">
+    <input type="file" id="file-input" accept="image/*">
+    <div class="up-icon">↑</div>
+    <div class="up-label">วางหรือคลิกเพื่ออัปโหลด</div>
+    <div class="up-hint">PNG · JPG · WEBP · ≤ 15MB</div>
+  </div>
+
+  <div id="canvas-section">
+    <div class="toolbar">
+      <div class="toolbar-steps">
+        <div class="stp done"  id="stp1"><div class="stp-n">✓</div>อัปโหลด</div>
+        <div class="stp-sep"></div>
+        <div class="stp active" id="stp2"><div class="stp-n">2</div>วงพื้นที่</div>
+        <div class="stp-sep"></div>
+        <div class="stp" id="stp3"><div class="stp-n">3</div>AI วิเคราะห์</div>
+        <div class="stp-sep"></div>
+        <div class="stp" id="stp4"><div class="stp-n">4</div>Snap Edge</div>
+        <div class="stp-sep"></div>
+        <div class="stp" id="stp5"><div class="stp-n">5</div>ลบพื้นหลัง</div>
+      </div>
+      <div class="toolbar-tip" id="tip">วงรอบวัตถุที่ต้องการ</div>
+    </div>
+
+    <div class="canvas-wrapper" id="wrapper">
+      <canvas id="main-canvas"></canvas>
+      <canvas id="lasso-canvas"></canvas>
+      <canvas id="ui-canvas"></canvas>
+    </div>
+
+    <div id="status-bar">
+      <div class="sdot" id="sdot"></div>
+      <span id="stext">พร้อมรับการวาด — วงรอบวัตถุที่ต้องการ</span>
+      <div class="badge-pill gold" id="obj-pill"></div>
+    </div>
+
+    <div class="tool-acts">
+      <button class="btn btn-ghost" id="btn-clear">ล้างเส้น</button>
+      <button class="btn btn-ghost" id="btn-reset">รูปใหม่</button>
+    </div>
+  </div>
+
+  <div id="result-section">
+    <div class="res-t">— ผลลัพธ์ —</div>
+    <canvas id="result-canvas"></canvas>
+    <div class="res-acts">
+      <button class="btn btn-gold" id="btn-dl">ดาวน์โหลด PNG</button>
+      <button class="btn btn-ghost" id="btn-again">เริ่มใหม่</button>
+    </div>
+  </div>
+</main>
+
+<div id="confirm-dialog">
+  <div class="dlg">
+    <span class="dlg-glyph">✦</span>
+    <div class="dlg-title" id="dlg-title">ต้องการลบพื้นหลังเลยไหม?</div>
+    <div class="dlg-sub" id="dlg-sub">AI ปรับเส้นตาม edge ของวัตถุแล้ว</div>
+    <div class="dlg-chips" id="dlg-chips"></div>
+    <div class="dlg-acts">
+      <button class="btn btn-ghost" id="btn-cancel">ยกเลิก</button>
+      <button class="btn btn-gold" id="btn-confirm">ลบพื้นหลัง ✦</button>
+    </div>
+  </div>
+</div>
+
+<div id="loading-overlay">
+  <div class="rw"><div class="r1"></div><div class="r2"></div></div>
+  <div class="ld-t" id="ld-t">กำลังประมวลผล…</div>
+  <div class="pt"><div class="pf" id="pf"></div></div>
+  <div class="ld-s" id="ld-s">AI Background Removal</div>
+</div>
+<div id="toast"></div>
+<footer>IKKYU ณัชสรณ์ · AI Edge Object Select · Background Removal</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════════════════
+const OBJ_COLORS = [
+  { s:'rgba(201,168,76,0.92)', glow:'rgba(201,168,76,0.5)', dot:'rgba(201,168,76,0.88)',
+    dash:'rgba(255,248,210,0.35)', chip:'gold', label:'วัตถุ 1' },
+  { s:'rgba(76,191,201,0.92)', glow:'rgba(76,191,201,0.5)', dot:'rgba(76,191,201,0.88)',
+    dash:'rgba(195,248,255,0.35)', chip:'cyan', label:'วัตถุ 2' },
+  { s:'rgba(201,130,76,0.92)', glow:'rgba(201,130,76,0.5)', dot:'rgba(201,130,76,0.88)',
+    dash:'rgba(255,225,195,0.35)', chip:'gold', label:'วัตถุ 3' },
+];
+
+let imgEl       = null;
+let rawLasso    = [];
+let objects     = [];   // [{pts, color}]  — final snapped contours
+let isDrawing   = false;
+let phase       = 'idle';
+let edgeMap     = null, gradX = null, gradY = null;
+let EW = 0, EH = 0;
+let animRafs    = [];
+let dashOff     = 0;
+
+// ═══════════════════════════════════════════════════════════════════
+//  DOM
+// ═══════════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const uz   = $('upload-zone'), fi = $('file-input');
+const cSec = $('canvas-section'), rSec = $('result-section');
+const MC   = $('main-canvas'),   LC = $('lasso-canvas'), UC = $('ui-canvas');
+const mCtx = MC.getContext('2d'), lCtx = LC.getContext('2d'), uCtx = UC.getContext('2d');
+const wrap = $('wrapper');
+const cdlg = $('confirm-dialog'), loadOvl = $('loading-overlay');
+const RC   = $('result-canvas');
+const tipEl= $('tip'), sdot=$('sdot'), stxt=$('stext'), pill=$('obj-pill');
+const pf   = $('pf'), ldT=$('ld-t'), ldS=$('ld-s');
+const stp1=$('stp1'),stp2=$('stp2'),stp3=$('stp3'),stp4=$('stp4'),stp5=$('stp5');
+
+// ═══════════════════════════════════════════════════════════════════
+//  UPLOAD
+// ═══════════════════════════════════════════════════════════════════
+uz.addEventListener('click', () => fi.click());
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('drag-over'); });
+uz.addEventListener('dragleave', () => uz.classList.remove('drag-over'));
+uz.addEventListener('drop', e => { e.preventDefault(); uz.classList.remove('drag-over'); loadFile(e.dataTransfer.files[0]); });
+fi.addEventListener('change', e => loadFile(e.target.files[0]));
+
+function loadFile(f) {
+  if (!f) return;
+  if (f.size > 15e6) { toast('ไฟล์ใหญ่เกิน 15MB'); return; }
+  const rd = new FileReader();
+  rd.onload = ev => {
+    const im = new Image();
+    im.onload = () => {
+      imgEl = im;
+      initCanvases(im);
+      uz.style.display = 'none';
+      cSec.style.display = 'flex';
+      rSec.style.display = 'none';
+      setStep(2); phase = 'idle';
+      buildGradients();
+    };
+    im.src = ev.target.result;
+  };
+  rd.readAsDataURL(f);
+}
+
+function initCanvases(im) {
+  const maxW = Math.min(window.innerWidth - 52, 920);
+  const maxH = Math.floor(window.innerHeight * 0.62);
+  let w = im.width, h = im.height;
+  const r = Math.min(maxW/w, maxH/h, 1);
+  w = Math.round(w*r); h = Math.round(h*r);
+  [MC,LC,UC].forEach(c => { c.width=w; c.height=h; });
+  mCtx.drawImage(im, 0, 0, w, h);
+  resetState();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  BUILD GRADIENT MAP  (Sobel with gradient direction)
+// ═══════════════════════════════════════════════════════════════════
+function buildGradients() {
+  const w = MC.width, h = MC.height;
+  EW = w; EH = h;
+  const px = mCtx.getImageData(0, 0, w, h).data;
+
+  // Grayscale
+  const gray = new Float32Array(w*h);
+  for (let i=0;i<w*h;i++)
+    gray[i] = 0.299*px[i*4] + 0.587*px[i*4+1] + 0.114*px[i*4+2];
+
+  // Gaussian σ=2.0 for smoother gradients
+  const bl = gaussBlur(gray, w, h, 2.0);
+
+  // Sobel
+  const gx = new Float32Array(w*h);
+  const gy = new Float32Array(w*h);
+  const mag = new Float32Array(w*h);
+  let maxM = 0;
+  for (let y=1;y<h-1;y++) {
+    for (let x=1;x<w-1;x++) {
+      const i = y*w+x;
+      gx[i] = -bl[(y-1)*w+(x-1)] + bl[(y-1)*w+(x+1)]
+               -2*bl[y*w+(x-1)]   + 2*bl[y*w+(x+1)]
+               -bl[(y+1)*w+(x-1)] + bl[(y+1)*w+(x+1)];
+      gy[i] = -bl[(y-1)*w+(x-1)] - 2*bl[(y-1)*w+x] - bl[(y-1)*w+(x+1)]
+               +bl[(y+1)*w+(x-1)] + 2*bl[(y+1)*w+x] + bl[(y+1)*w+(x+1)];
+      const m = Math.sqrt(gx[i]*gx[i]+gy[i]*gy[i]);
+      mag[i]=m; if(m>maxM) maxM=m;
+    }
+  }
+  for (let i=0;i<mag.length;i++) mag[i] /= (maxM||1);
+  edgeMap = mag; gradX = gx; gradY = gy;
+}
+
+function gaussBlur(src, w, h, sigma) {
+  const r=Math.ceil(sigma*2.5), k=[], ks_arr=[];
+  let ks=0;
+  for(let i=-r;i<=r;i++){const v=Math.exp(-(i*i)/(2*sigma*sigma));k.push(v);ks+=v;}
+  for(let i=0;i<k.length;i++) k[i]/=ks;
+  const tmp=new Float32Array(w*h),out=new Float32Array(w*h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    let s=0; for(let ki=0;ki<k.length;ki++){const xx=Math.max(0,Math.min(w-1,x+ki-r));s+=src[y*w+xx]*k[ki];}tmp[y*w+x]=s;
+  }
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    let s=0; for(let ki=0;ki<k.length;ki++){const yy=Math.max(0,Math.min(h-1,y+ki-r));s+=tmp[yy*w+x]*k[ki];}out[y*w+x]=s;
+  }
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LASSO INPUT
+// ═══════════════════════════════════════════════════════════════════
+function getPos(e) {
+  const rect=LC.getBoundingClientRect();
+  const sx=LC.width/rect.width, sy=LC.height/rect.height;
+  const src=e.touches?e.touches[0]:e;
+  return {x:(src.clientX-rect.left)*sx, y:(src.clientY-rect.top)*sy};
+}
+wrap.addEventListener('mousedown', onStart);
+wrap.addEventListener('touchstart', e=>{e.preventDefault();onStart(e);},{passive:false});
+wrap.addEventListener('mousemove', onMove);
+wrap.addEventListener('touchmove', e=>{e.preventDefault();onMove(e);},{passive:false});
+wrap.addEventListener('mouseup', onEnd);
+wrap.addEventListener('touchend', onEnd);
+
+function onStart(e) {
+  if (phase!=='idle') return;
+  isDrawing=true; phase='drawing';
+  rawLasso=[getPos(e)];
+  setSt('กำลังวาด…','gold');
+}
+function onMove(e) {
+  if (!isDrawing||phase!=='drawing') return;
+  const p=getPos(e), last=rawLasso[rawLasso.length-1];
+  if (Math.hypot(p.x-last.x,p.y-last.y)>2.2) {
+    rawLasso.push(p);
+    drawSimpleLasso(rawLasso);
+  }
+}
+function onEnd() {
+  if (!isDrawing||rawLasso.length<10){isDrawing=false;phase='idle';return;}
+  isDrawing=false;
+  phase='analysing';
+  setStep(3);
+  tipEl.textContent='AI กำลังวิเคราะห์…';
+  setSt('AI กำลังวิเคราะห์วัตถุในพื้นที่ที่เลือก…','gold');
+  setTimeout(runAnalysis, 80);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  MAIN PIPELINE
+// ═══════════════════════════════════════════════════════════════════
+async function runAnalysis() {
+  // 1. Rasterise lasso into mask
+  const lassoMask = rasteriseLasso(rawLasso, EW, EH);
+
+  // 2. Foreground / background model from lasso interior
+  //    Estimate FG from centre sample, BG from outside lasso
+  const fgMask = extractForegroundMask(lassoMask, EW, EH);
+
+  // 3. Morphological clean-up
+  let cleanMask = morphOpen(fgMask, EW, EH, 3);   // remove tiny specs
+  cleanMask     = morphClose(cleanMask, EW, EH, 5); // fill small holes
+
+  // 4. Find connected components inside lasso
+  const comps = connectedComponents(cleanMask, EW, EH);
+
+  // 5. Keep significant components; split or merge
+  const totalLassoArea = lassoMask.reduce((s,v)=>s+v,0);
+  const minArea = Math.max(150, totalLassoArea * 0.025);
+  let kept = comps.filter(c=>c.area>=minArea).slice(0,3);
+  if (kept.length===0) kept=[{mask:lassoMask, area:totalLassoArea, cx:EW/2, cy:EH/2}];
+
+  // 6. For each component: radial boundary + edge snap
+  setStep(4);
+  const count = kept.length;
+  setSt(count>1?`พบ ${count} วัตถุ — กำลัง Snap เส้น…`:'พบ 1 วัตถุ — กำลัง Snap เส้น…', count>1?'cyan':'gold');
+  pill.textContent=`พบ ${count} วัตถุ`;
+  pill.className=`badge-pill ${count>1?'cyan':'gold'} show`;
+  tipEl.textContent=count>1?`AI แยก ${count} เส้น…`:'AI Snap เส้น…';
+
+  // Flash analysis colours briefly
+  flashMasks(kept, ()=>{
+    // Build final contours
+    const contours = kept.map((comp,i)=>{
+      const boundary = radialBoundary(comp, EW, EH);
+      const snapped  = snapToEdge(boundary);
+      const smooth   = laplacianSmooth(snapped, 6, 0.35);
+      return { from: uniformResample(rawLasso, smooth.length), to:smooth, color:OBJ_COLORS[i%OBJ_COLORS.length]};
+    });
+
+    // 7. Animate morph
+    animMorph(contours, ()=>{
+      phase='snapped';
+      objects = contours.map(c=>({pts:c.to, color:c.color}));
+      setStep(5);
+      setSt('เสร็จแล้ว — เส้นตรงกับขอบวัตถุ ✦','');
+      tipEl.textContent='AI จัดเส้นแล้ว — กดยืนยันเพื่อลบพื้นหลัง';
+      // Dialog
+      $('dlg-chips').innerHTML=contours.map(c=>`<span class="chip ${c.color.chip}">${c.color.label}</span>`).join('');
+      $('dlg-title').textContent=count>1?`ลบพื้นหลังทั้ง ${count} วัตถุ?`:'ต้องการลบพื้นหลังเลยไหม?';
+      $('dlg-sub').textContent=count>1?`AI แยกเส้นสำหรับแต่ละวัตถุแล้ว\nกดยืนยันเพื่อลบพื้นหลัง`:'AI ปรับเส้นตาม edge ของวัตถุแล้ว';
+      setTimeout(()=>cdlg.classList.add('show'), 340);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RASTERISE LASSO
+// ═══════════════════════════════════════════════════════════════════
+function rasteriseLasso(pts, w, h) {
+  const oc=new OffscreenCanvas(w,h), ox=oc.getContext('2d');
+  ox.fillStyle='#fff';
+  ox.beginPath();
+  const rp=uniformResample(pts, Math.min(pts.length, 200));
+  ox.moveTo(rp[0].x,rp[0].y);
+  for(let i=1;i<rp.length;i++) ox.lineTo(rp[i].x,rp[i].y);
+  ox.closePath(); ox.fill();
+  const d=ox.getImageData(0,0,w,h).data;
+  const m=new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++) m[i]=d[i*4]>128?1:0;
+  return m;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  FOREGROUND EXTRACTION
+//  Strategy: sample FG colour from lasso interior (shrunk by 15%),
+//  BG from a ring just outside the lasso. Build colour model, classify.
+// ═══════════════════════════════════════════════════════════════════
+function extractForegroundMask(lassoMask, w, h) {
+  const px = mCtx.getImageData(0,0,w,h).data;
+
+  // Erode lasso mask for reliable FG samples
+  const innerMask = morphErode(lassoMask, w, h, Math.round(Math.min(w,h)*0.06));
+  // Dilate lasso mask for BG ring
+  const outerMask = morphDilate(lassoMask, w, h, Math.round(Math.min(w,h)*0.04));
+
+  // Collect FG and BG colour samples
+  let fgR=0,fgG=0,fgB=0,fgN=0;
+  let bgR=0,bgG=0,bgB=0,bgN=0;
+
+  for (let i=0;i<w*h;i++) {
+    if (innerMask[i]) {
+      fgR+=px[i*4];fgG+=px[i*4+1];fgB+=px[i*4+2];fgN++;
+    } else if (outerMask[i]&&!lassoMask[i]) {
+      bgR+=px[i*4];bgG+=px[i*4+1];bgB+=px[i*4+2];bgN++;
+    }
+  }
+  if (fgN===0||bgN===0) return lassoMask; // fallback
+
+  fgR/=fgN;fgG/=fgN;fgB/=fgN;
+  bgR/=bgN;bgG/=bgN;bgB/=bgN;
+
+  // Pixel-wise: assign FG if closer to FG centroid than BG
+  // Use squared colour distance in RGB space
+  const result = new Uint8Array(w*h);
+  for (let i=0;i<w*h;i++) {
+    if (!lassoMask[i]) continue;
+    const r=px[i*4],g=px[i*4+1],b=px[i*4+2];
+    const dfg=(r-fgR)**2+(g-fgG)**2+(b-fgB)**2;
+    const dbg=(r-bgR)**2+(g-bgG)**2+(b-bgB)**2;
+    if (dfg < dbg*1.4) result[i]=1; // slight FG bias
+  }
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  MORPHOLOGICAL OPS
+// ═══════════════════════════════════════════════════════════════════
+function morphDilate(mask, w, h, r) {
+  const out=new Uint8Array(w*h);
+  const r2=r*r;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) {
+    if(mask[y*w+x]){
+      for(let dy=-r;dy<=r;dy++) for(let dx=-r;dx<=r;dx++) {
+        if(dx*dx+dy*dy<=r2){
+          const nx=x+dx,ny=y+dy;
+          if(nx>=0&&ny>=0&&nx<w&&ny<h) out[ny*w+nx]=1;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function morphErode(mask, w, h, r) {
+  // Erode = complement of dilate of complement
+  const inv=new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++) inv[i]=mask[i]?0:1;
+  const dilInv=morphDilate(inv,w,h,r);
+  const out=new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++) out[i]=dilInv[i]?0:1;
+  return out;
+}
+
+function morphOpen(mask,w,h,r){ return morphDilate(morphErode(mask,w,h,r),w,h,r); }
+function morphClose(mask,w,h,r){ return morphErode(morphDilate(mask,w,h,r),w,h,r); }
+
+// ═══════════════════════════════════════════════════════════════════
+//  CONNECTED COMPONENTS  (4-connected BFS)
+// ═══════════════════════════════════════════════════════════════════
+function connectedComponents(mask, w, h) {
+  const visited=new Uint8Array(w*h);
+  const comps=[];
+  for(let start=0;start<w*h;start++) {
+    if(!mask[start]||visited[start]) continue;
+    const q=[start]; visited[start]=1;
+    let area=0,sx=0,sy=0,minX=w,maxX=0,minY=h,maxY=0;
+    const pixels=[];
+    while(q.length){
+      const idx=q.shift();
+      pixels.push(idx); area++;
+      const x=idx%w,y=Math.floor(idx/w);
+      sx+=x;sy+=y;
+      if(x<minX)minX=x;if(x>maxX)maxX=x;
+      if(y<minY)minY=y;if(y>maxY)maxY=y;
+      for(const d of [-1,1,-w,w]){
+        const ni=idx+d;
+        const nx=ni%w;
+        // Check x-wrap for horizontal moves
+        if(d===1&&nx===0) continue;
+        if(d===-1&&nx===w-1) continue;
+        if(ni>=0&&ni<w*h&&!visited[ni]&&mask[ni]){visited[ni]=1;q.push(ni);}
+      }
+    }
+    if(area>30) {
+      const compMask=new Uint8Array(w*h);
+      for(const p of pixels) compMask[p]=1;
+      comps.push({mask:compMask,area,cx:sx/area,cy:sy/area,minX,maxX,minY,maxY});
+    }
+  }
+  return comps.sort((a,b)=>b.area-a.area);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RADIAL BOUNDARY SAMPLING
+//  Cast rays from component centroid in 360 directions (1° step).
+//  For each ray: find the OUTERMOST foreground pixel.
+//  This gives a CLEAN, ordered, single-polygon boundary.
+// ═══════════════════════════════════════════════════════════════════
+function radialBoundary(comp, w, h) {
+  const cx = comp.cx, cy = comp.cy;
+  const STEPS = 180; // every 2°
+  const pts = [];
+
+  for (let i=0;i<STEPS;i++) {
+    const angle = (i/STEPS)*Math.PI*2;
+    const cosA = Math.cos(angle), sinA = Math.sin(angle);
+
+    // Max ray length = distance to image edge from centroid
+    const maxLen = Math.min(
+      cx, cy, w-1-cx, h-1-cy,
+      Math.hypot(Math.max(cx,w-cx), Math.max(cy,h-cy))
+    );
+
+    let bx=cx, by=cy;
+    let lastFG=false;
+
+    for (let t=1;t<maxLen;t+=0.8) {
+      const px=Math.round(cx+cosA*t), py=Math.round(cy+sinA*t);
+      if(px<0||py<0||px>=w||py>=h) break;
+      const isFG = comp.mask[py*w+px]===1;
+      if(!isFG && lastFG) break; // just crossed boundary outward → stop
+      if(isFG){ bx=px; by=py; lastFG=true; }
+    }
+
+    // If no FG found along ray: use centroid
+    pts.push({x:bx, y:by});
+  }
+
+  return pts;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EDGE SNAP  — gradient-guided
+//  Each boundary point searches along its outward normal for the
+//  strongest edge, then refines using gradient direction.
+// ═══════════════════════════════════════════════════════════════════
+function snapToEdge(pts) {
+  if (!edgeMap||pts.length<4) return pts;
+  const diag=Math.hypot(EW,EH);
+  const R = Math.round(diag*0.05); // search radius ~5% of diagonal
+
+  return pts.map((p,i)=>{
+    const prev=pts[(i-1+pts.length)%pts.length];
+    const next=pts[(i+1)%pts.length];
+    const tx=next.x-prev.x, ty=next.y-prev.y;
+    const len=Math.hypot(tx,ty)||1;
+    const nx=-ty/len, ny=tx/len; // outward normal
+
+    let best=0,bx=p.x,by=p.y;
+
+    // Search along normal ±R
+    for(let s=-R;s<=R;s++) {
+      const cx=p.x+nx*s, cy=p.y+ny*s;
+      const xi=Math.round(cx),yi=Math.round(cy);
+      if(xi<1||yi<1||xi>=EW-1||yi>=EH-1) continue;
+      // Weighted: prefer positions closer to original point
+      const distW = 1-0.3*(Math.abs(s)/R);
+      const score = edgeSample(xi,yi) * distW;
+      if(score>best){best=score;bx=cx;by=cy;}
+    }
+
+    // Refine: follow gradient direction from best position
+    if(best>0.08) {
+      const xi2=Math.round(bx),yi2=Math.round(by);
+      if(xi2>=1&&yi2>=1&&xi2<EW-1&&yi2<EH-1) {
+        const gxVal=gradX[yi2*EW+xi2], gyVal=gradY[yi2*EW+xi2];
+        const gLen=Math.sqrt(gxVal*gxVal+gyVal*gyVal)||1;
+        const gnx=gxVal/gLen, gny=gyVal/gLen;
+        // Take small step along gradient
+        for(let s2=-4;s2<=4;s2++) {
+          const cx2=bx+gnx*s2, cy2=by+gny*s2;
+          const xi3=Math.round(cx2),yi3=Math.round(cy2);
+          if(xi3<1||yi3<1||xi3>=EW-1||yi3>=EH-1) continue;
+          const score2=edgeSample(xi3,yi3);
+          if(score2>best){best=score2;bx=cx2;by=cy2;}
+        }
+      }
+    }
+
+    const thr=0.08;
+    if(best<thr) return p; // no strong edge: stay
+    const str=Math.min(1,(best-thr)/0.5);
+    return {x:p.x+(bx-p.x)*str, y:p.y+(by-p.y)*str};
+  });
+}
+
+function edgeSample(x,y) {
+  if(!edgeMap||x<1||y<1||x>=EW-1||y>=EH-1) return 0;
+  // 3×3 average for robustness
+  let s=0;
+  for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++) s+=edgeMap[(y+dy)*EW+(x+dx)];
+  return s/9;
+}
+
+function laplacianSmooth(pts,iters,alpha){
+  let p=pts.map(pt=>({...pt}));
+  for(let it=0;it<iters;it++) p=p.map((pt,i)=>{
+    const prev=p[(i-1+p.length)%p.length],next=p[(i+1)%p.length];
+    return {x:pt.x*(1-alpha)+(prev.x+next.x)*.5*alpha,
+            y:pt.y*(1-alpha)+(prev.y+next.y)*.5*alpha};
+  });
+  return p;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  FLASH ANALYSIS MASKS
+// ═══════════════════════════════════════════════════════════════════
+function flashMasks(comps, onDone) {
+  const w=EW,h=EH;
+  const oc=new OffscreenCanvas(w,h), ox=oc.getContext('2d');
+  const MASK_COLORS=[
+    [201,168,76,90],[76,191,201,90],[201,130,76,90]
+  ];
+  comps.forEach((c,i)=>{
+    const [r,g,b,a]=MASK_COLORS[i%3];
+    const id=ox.createImageData(w,h);
+    for(let k=0;k<w*h;k++){if(c.mask[k]){id.data[k*4]=r;id.data[k*4+1]=g;id.data[k*4+2]=b;id.data[k*4+3]=a;}}
+    ox.putImageData(id,0,0);
+  });
+
+  // Show analysis colours on UI canvas
+  uCtx.clearRect(0,0,w,h);
+  uCtx.drawImage(oc,0,0);
+
+  // Animate scan line across canvas
+  let scanY=0, dur=900, t0=performance.now();
+  function scan(now){
+    const t=Math.min(1,(now-t0)/dur);
+    scanY=Math.round(h*t);
+    // Draw golden scan beam over analysis
+    uCtx.clearRect(0,0,w,h);
+    uCtx.drawImage(oc,0,0);
+    // Beam
+    const grad=uCtx.createLinearGradient(0,scanY-25,0,scanY+25);
+    grad.addColorStop(0,'transparent');
+    grad.addColorStop(0.5,'rgba(201,168,76,0.55)');
+    grad.addColorStop(1,'transparent');
+    uCtx.fillStyle=grad; uCtx.fillRect(0,scanY-25,w,50);
+    uCtx.strokeStyle='rgba(232,208,138,0.7)';
+    uCtx.lineWidth=1; uCtx.beginPath(); uCtx.moveTo(0,scanY); uCtx.lineTo(w,scanY); uCtx.stroke();
+    if(t<1) requestAnimationFrame(scan);
+    else {
+      // Fade out
+      let fo=1, ft0=performance.now();
+      function fadeOut(n){
+        fo=Math.max(0,1-(n-ft0)/500);
+        uCtx.clearRect(0,0,w,h);
+        uCtx.globalAlpha=fo; uCtx.drawImage(oc,0,0); uCtx.globalAlpha=1;
+        if(fo>0) requestAnimationFrame(fadeOut);
+        else {uCtx.clearRect(0,0,w,h); onDone?.();}
+      }
+      requestAnimationFrame(fadeOut);
+    }
+  }
+  requestAnimationFrame(scan);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  ANIMATE MORPH  (raw lasso → snapped contours, per-object stagger)
+// ═══════════════════════════════════════════════════════════════════
+function animMorph(contours, onDone) {
+  cancelAnimRafs();
+  const DUR=800;
+  const t0=performance.now();
+
+  function frame(now) {
+    const rawT=Math.min(1,(now-t0)/DUR);
+    lCtx.clearRect(0,0,LC.width,LC.height);
+
+    contours.forEach((c,ci)=>{
+      const delay=ci*0.12;
+      const lt=Math.max(0,Math.min(1,(rawT-delay)/(1-delay||0.01)));
+      const te=easeOutExpo(lt);
+
+      const from=c.from, to=c.to;
+      const morphed=from.map((fp,j)=>({
+        x:fp.x+(to[j].x-fp.x)*te,
+        y:fp.y+(to[j].y-fp.y)*te
+      }));
+
+      // Scan line per object
+      if(lt>0&&lt<0.95){
+        const sy=Math.round(LC.height*lt);
+        drawBeam(lCtx,LC.width,sy,c.color.glow);
+      }
+
+      drawContour(lCtx, morphed, lt>0.08, te, c.color);
+    });
+
+    if(rawT<1){
+      const r=requestAnimationFrame(frame);
+      animRafs.push(r);
+    } else {
+      onDone?.();
+    }
+  }
+  animRafs.push(requestAnimationFrame(frame));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DRAW HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function drawSimpleLasso(pts) {
+  lCtx.clearRect(0,0,LC.width,LC.height);
+  if(pts.length<2) return;
+  lCtx.save();
+  lCtx.strokeStyle='rgba(201,168,76,0.75)';
+  lCtx.lineWidth=2; lCtx.lineJoin='round'; lCtx.lineCap='round';
+  lCtx.beginPath(); lCtx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++) lCtx.lineTo(pts[i].x,pts[i].y);
+  lCtx.stroke(); lCtx.restore();
+}
+
+function drawBeam(ctx,w,y,color) {
+  ctx.save();
+  const g=ctx.createLinearGradient(0,y-24,0,y+24);
+  g.addColorStop(0,'transparent'); g.addColorStop(0.5,color); g.addColorStop(1,'transparent');
+  ctx.fillStyle=g; ctx.globalAlpha=0.5; ctx.fillRect(0,y-24,w,48);
+  ctx.globalAlpha=0.75;
+  ctx.strokeStyle=color.replace('0.5','0.85');
+  ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+  ctx.restore();
+}
+
+function drawContour(ctx, pts, closed, progress, col) {
+  if(!pts||pts.length<2) return;
+  const w=LC.width,h=LC.height;
+
+  // Dark exterior mask
+  if(closed&&pts.length>3&&progress>0.05) {
+    ctx.save();
+    ctx.fillStyle=`rgba(0,0,0,${0.54*Math.min(1,progress*2)})`;
+    ctx.fillRect(0,0,w,h);
+    ctx.globalCompositeOperation='destination-out';
+    catmull(ctx,pts,true); ctx.fill();
+    ctx.restore();
+  }
+
+  // Outer glow stroke
+  ctx.save();
+  ctx.shadowColor=col.glow; ctx.shadowBlur=16;
+  ctx.strokeStyle=col.s; ctx.lineWidth=2.4;
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  catmull(ctx,pts,closed); ctx.stroke();
+  ctx.restore();
+
+  // Marching ants
+  dashOff=(performance.now()*0.024)%20;
+  ctx.save();
+  ctx.strokeStyle=col.dash; ctx.lineWidth=1;
+  ctx.setLineDash([4,9]); ctx.lineDashOffset=-dashOff;
+  catmull(ctx,pts,closed); ctx.stroke();
+  ctx.restore();
+
+  // Anchor dots
+  if(closed&&progress>0.7){
+    const a=Math.min(1,(progress-0.7)/0.3);
+    const step=Math.max(1,Math.floor(pts.length/24));
+    pts.forEach((pt,i)=>{
+      if(i%step!==0) return;
+      ctx.save(); ctx.shadowColor=col.dot; ctx.shadowBlur=7;
+      ctx.beginPath(); ctx.arc(pt.x,pt.y,2.6,0,Math.PI*2);
+      ctx.fillStyle=col.dot.replace('0.88',`${0.88*a}`); ctx.fill(); ctx.restore();
+    });
+  }
+}
+
+function catmull(ctx,pts,closed){
+  if(!pts||pts.length<2) return;
+  ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+  const n=closed?pts.length:pts.length-1;
+  for(let i=0;i<n;i++){
+    const p0=pts[(i-1+pts.length)%pts.length], p1=pts[i];
+    const p2=pts[(i+1)%pts.length], p3=pts[(i+2)%pts.length];
+    const cp1x=p1.x+(p2.x-p0.x)/6, cp1y=p1.y+(p2.y-p0.y)/6;
+    const cp2x=p2.x-(p3.x-p1.x)/6, cp2y=p2.y-(p3.y-p1.y)/6;
+    ctx.bezierCurveTo(cp1x,cp1y,cp2x,cp2y,p2.x,p2.y);
+  }
+  if(closed) ctx.closePath();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  MARCHING ANTS LOOP
+// ═══════════════════════════════════════════════════════════════════
+(function loop(){
+  if(phase==='snapped'&&objects.length){
+    lCtx.clearRect(0,0,LC.width,LC.height);
+    objects.forEach(o=>drawContour(lCtx,o.pts,true,1,o.color));
+  }
+  requestAnimationFrame(loop);
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+//  UTILITY
+// ═══════════════════════════════════════════════════════════════════
+function uniformResample(pts,n){
+  if(!pts||pts.length<2) return pts||[];
+  const lens=[0];
+  for(let i=1;i<pts.length;i++) lens.push(lens[i-1]+Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y));
+  const total=lens[lens.length-1]; if(total<1) return pts;
+  const res=[]; let j=0;
+  for(let i=0;i<n;i++){
+    const tgt=(i/(n-1))*total;
+    while(j<lens.length-1&&lens[j+1]<tgt) j++;
+    const seg=lens[j+1]-lens[j], t=seg>0?(tgt-lens[j])/seg:0;
+    const a=pts[j],b=pts[Math.min(j+1,pts.length-1)];
+    res.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+  }
+  return res;
+}
+function easeOutExpo(t){return t===1?1:1-Math.pow(2,-10*t);}
+function cancelAnimRafs(){animRafs.forEach(r=>cancelAnimationFrame(r));animRafs=[];}
+
+function resetState(){
+  cancelAnimRafs(); rawLasso=[]; objects=[];
+  lCtx.clearRect(0,0,LC.width,LC.height);
+  uCtx.clearRect(0,0,UC.width,UC.height);
+  pill.className='badge-pill gold'; pill.textContent='';
+}
+
+function setStep(n){
+  [stp1,stp2,stp3,stp4,stp5].forEach((s,i)=>{
+    const done=i+1<n, active=i+1===n;
+    s.classList.toggle('done',done); s.classList.toggle('active',active);
+    if(done) s.querySelector('.stp-n').textContent='✓';
+    else s.querySelector('.stp-n').textContent=String(i+1);
+  });
+}
+function setSt(msg,dotClass){stxt.textContent=msg;sdot.className='sdot'+(dotClass?' '+dotClass:'');}
+function setP(v){pf.style.width=v+'%';}
+function toast(msg,d=3000){const el=$('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),d);}
+
+// ═══════════════════════════════════════════════════════════════════
+//  BUTTONS
+// ═══════════════════════════════════════════════════════════════════
+$('btn-clear').addEventListener('click',()=>{
+  resetState(); phase='idle'; setStep(2);
+  tipEl.textContent='วงรอบวัตถุที่ต้องการ';
+  setSt('พร้อมรับการวาด','');
+});
+$('btn-reset').addEventListener('click',()=>{
+  resetState(); phase='idle'; setStep(1);
+  cSec.style.display='none'; uz.style.display='flex'; fi.value='';
+});
+$('btn-cancel').addEventListener('click',()=>{
+  cdlg.classList.remove('show');
+  resetState(); phase='idle'; setStep(2);
+  tipEl.textContent='วงรอบวัตถุที่ต้องการ'; setSt('พร้อมรับการวาด','');
+});
+$('btn-confirm').addEventListener('click',()=>{cdlg.classList.remove('show');doRemove();});
+$('btn-dl').addEventListener('click',()=>{
+  const a=document.createElement('a'); a.download='ikkyu-result.png';
+  a.href=RC.toDataURL('image/png'); a.click();
+});
+$('btn-again').addEventListener('click',()=>{
+  rSec.style.display='none'; uz.style.display='flex';
+  fi.value=''; resetState(); phase='idle'; setStep(1);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  BACKGROUND REMOVAL
+// ═══════════════════════════════════════════════════════════════════
+async function doRemove(){
+  loadOvl.classList.add('show'); setP(0);
+  ldT.textContent='กำลังประมวลผล…'; ldS.textContent='โหลด AI Model…';
+  phase='done';
+  let fp=0;
+  const fi2=setInterval(()=>{fp=Math.min(fp+Math.random()*3,80);setP(fp);},220);
+  try {
+    const {removeBackground}=await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/background-removal.js');
+    const blob=await new Promise(res=>MC.toBlob(res,'image/png'));
+    clearInterval(fi2); setP(88); ldS.textContent='กำลังลบพื้นหลัง…';
+    const result=await removeBackground(blob);
+    setP(96); ldS.textContent='เสร็จสิ้น…';
+    const url=URL.createObjectURL(result);
+    const rIm=new Image();
+    rIm.onload=()=>{
+      RC.width=rIm.width; RC.height=rIm.height;
+      const cx=RC.getContext('2d'); cx.clearRect(0,0,rIm.width,rIm.height); cx.drawImage(rIm,0,0);
+      setP(100);
+      setTimeout(()=>{loadOvl.classList.remove('show');cSec.style.display='none';rSec.style.display='flex';toast('ลบพื้นหลังสำเร็จ ✦');},600);
+    };
+    rIm.src=url;
+  } catch(err){
+    clearInterval(fi2); ldS.textContent='Lasso Mask…'; setP(90);
+    lassoFallback();
+  }
+}
+
+function lassoFallback(){
+  const objs=objects.length?objects:[{pts:uniformResample(rawLasso,120),color:OBJ_COLORS[0]}];
+  const w=MC.width,h=MC.height;
+  RC.width=w; RC.height=h;
+  const ctx=RC.getContext('2d'); ctx.clearRect(0,0,w,h);
+  ctx.save();
+  objs.forEach(o=>{catmull(ctx,o.pts,true);});
+  ctx.clip(); ctx.drawImage(MC,0,0); ctx.restore();
+  setP(100);
+  setTimeout(()=>{loadOvl.classList.remove('show');cSec.style.display='none';rSec.style.display='flex';toast('ลบพื้นหลังสำเร็จ (Offline) ✦');},600);
+}
+</script>
+</body>
+</html>
